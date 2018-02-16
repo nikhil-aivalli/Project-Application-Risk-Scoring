@@ -1,0 +1,252 @@
+---
+title: "Application Risk Scoring"
+author: "NIKHIL AIVALLI"
+date: "February 10, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Read data
+```{r warning=FALSE}
+CR <- read.csv('D:/IMARTICUS/SAS Class/Application Risk Scoring/Application Risk Scoring(Nikhil)/trainset.csv')
+#View(CR)
+#attach(CR)
+
+```
+#EDA
+#EDA:Remove irrelevant variables
+```{r warning=FALSE}
+CR$Credit=as.factor(CR$Credit)
+class(CR$Credit)
+CR$Random=NULL
+#Identify missing values using colSums 
+summary(CR)
+sum(is.na(CR))
+colSums(is.na(CR))
+```
+#Classification using decision tree
+```{r warning=FALSE}
+library(rpart)
+model_CR_DL = rpart(Credit~.,data=CR) # classification
+```
+#classification using Logistic Regression
+```{r warning=FALSE}
+model_CR_LR<- glm(Credit~balance_credit_acc+duration+moral+sparkont+beszeit+rate+famges+buerge+verm+alter+weitkred,family = binomial(link = 'logit'),data=CR)
+summary(model_CR_LR)
+```
+#classification using SVM
+```{r warning=FALSE}
+library(e1071)
+model_CR_SVM<- svm(formula=Credit~.,data=CR,type='C-classification',kernel='linear')
+summary(model_CR_SVM)
+```
+#classification using NAIVE BAYES
+```{r warning=FALSE}
+library(e1071)
+model_CR_NB<-naiveBayes(Credit~.,data=CR)
+```
+
+#classification using random forest
+```{r warning=FALSE}
+library(randomForest)
+model_CR_RF<-randomForest(x=CR[,-1],
+                      y=CR[,1],
+                      ntree = 20)
+#summary(model_CR_RF)
+
+```
+```{r}
+#detach(CR)
+```
+#VALIDATION DATASET 
+```{r warning=FALSE}
+CR_V<- read.csv('D:/IMARTICUS/SAS Class/Application Risk Scoring/Application Risk Scoring(Nikhil)/validateset.csv')
+CR_V$Random=NULL
+CR_V$Credit=as.factor(CR_V$Credit)
+#View(CR_V)
+#attach(CR_V)
+acc<-function(cf1){
+  Totp<-cf1[1,1]+cf1[1,2]+cf1[2,1]+cf1[2,2]
+  TP<-cf1[1,1]+cf1[2,2]
+  c<-TP/Totp
+  c
+}
+```
+#Classification & validation using KNN
+```{r warning=FALSE}
+library(class)
+model_CR_KNN=knn(train =CR[,-1] ,
+              test = CR_V[,-1],
+              cl=CR[,1],
+              k=20,prob = TRUE)
+model_CR_KNN<-as.numeric(model_CR_KNN)
+
+CF_CR_KNN<- table(model_CR_KNN,CR_V$Credit)
+CF_CR_KNN
+
+
+acc(CF_CR_KNN)   # 0.7222222  72.22%
+library(ROCR)
+
+pr_CR_KNN<- prediction(model_CR_KNN,CR_V$Credit)
+#length(cr_v$Loan_Status)
+prf_CR_KNN<- performance(pr_CR_KNN,measure = "tpr",x.measure = "fpr")
+plot(prf_CR_KNN)
+
+#obtaining area under ROC curve
+auc_CR_KNN<-performance(pr_CR_KNN,measure = "auc")
+auc_CR_KNN<- auc_CR_KNN@y.values[[1]]
+auc_CR_KNN
+```
+
+#validating using decision tree
+```{r warning=FALSE}
+#CR_V$Credit=as.numeric(CR_V$Credit)
+validate_CR_DL <- predict(model_CR_DL,newdata=CR_V,type = 'class')
+#validate_CR_DL <- ifelse(validate_CR_DL>=0.5,1,0)
+validate_CR_DL<-as.numeric(validate_CR_DL)
+
+#Confusion matrix
+cf_CR_DL<-table(validate_CR_DL,CR_V$Credit)
+cf_CR_DL
+#function for accuracy
+
+acc(cf_CR_DL)   #0.7326389 73.26%
+
+library(ROCR)
+
+
+pr_CR_DL<- prediction(validate_CR_DL,CR_V$Credit)
+#length(cr_v$Loan_Status)
+prf_CR_DL<- performance(pr_CR_DL,measure = "tpr",x.measure = "fpr")
+plot(prf_CR_DL)
+
+#obtaining area under ROC curve
+auc_CR_DL<-performance(pr_CR_DL,measure = "auc")
+auc_CR_DL<- auc_CR_DL@y.values[[1]]
+auc_CR_DL
+
+#prediction for the prediction set
+plot(model_CR_DL,uniform=TRUE,cex=0.8)
+text(model_CR_DL, use.n=TRUE, all=TRUE)
+
+```
+
+
+
+
+
+
+
+
+
+#validating using logistic regression
+```{r warning=FALSE}
+#validation of our model using validation set
+validate_CR_LR <- predict(model_CR_LR,newdata=CR_V,type='response')
+validate_CR_LR <- ifelse(validate_CR_LR >=0.5,1,0)
+
+#Confusion matrix
+cf_CR_LR<-table(validate_CR_LR,CR_V$Credit)
+cf_CR_LR
+#function for accuracy
+
+acc(cf_CR_LR)   #0.7638889 76.38%
+
+library(ROCR)
+
+pr_CR_LR<- prediction(validate_CR_LR,CR_V$Credit)
+#length(cr_v$Loan_Status)
+prf_CR_LR<- performance(pr_CR_LR,measure = "tpr",x.measure = "fpr")
+plot(prf_CR_LR)
+
+#obtaining area under ROC curve
+auc_CR_LR<-performance(pr_CR_LR,measure = "auc")
+auc_CR_LR<- auc_CR_LR@y.values[[1]]
+auc_CR_LR
+#help(ROCR)
+```
+#validating using SVM
+```{r warning=FALSE}
+#predicting 
+validate_CR_SVM<-predict(model_CR_SVM,CR_V)
+
+validate_CR_SVM=as.numeric(validate_CR_SVM)
+#validate_CR_SVM<-ifelse(validate_CR_SVM=="Y",1,0)
+#confusion matrix
+cf_CR_SVM<-table(validate_CR_SVM,CR_V$Credit)
+cf_CR_SVM
+
+#function for accuracy
+
+acc(cf_CR_SVM)
+
+library(ROCR)
+pr_CR_SVM<- prediction(validate_CR_SVM,CR_V$Credit)
+#length(cr_v$Loan_Status)
+prf_CR_SVM<- performance(pr_CR_SVM,measure = "tpr",x.measure = "fpr")
+plot(prf_CR_SVM)
+
+#obtaining area under ROC curve
+auc_CR_SVM<-performance(pr_CR_SVM,measure = "auc")
+auc_CR_SVM<- auc_CR_SVM@y.values[[1]]
+auc_CR_SVM
+#help(ROCR)
+
+```
+#validating using NAIVE BAYES
+```{r warning=FALSE}
+#predicting 
+validate_CR_NB<-predict(model_CR_NB,CR_V)
+validate_CR_NB<-as.numeric(validate_CR_NB)
+#validate_CR_NB<-ifelse(validate_CR_NB=="Y",1,0)
+#confusion matrix
+cf_CR_NB<-table(validate_CR_NB,CR_V$Credit)
+cf_CR_NB
+
+#function for accuracy
+
+acc(cf_CR_NB) #0.7048611   70.48%
+
+library(ROCR)
+pr_CR_NB<- prediction(validate_CR_NB,CR_V$Credit)
+prf_CR_NB<- performance(pr_CR_NB,measure = "tpr",x.measure = "fpr")
+plot(prf_CR_NB)
+
+#obtaining area under ROC curve
+auc_CR_NB<-performance(pr_CR_NB,measure = "auc")
+auc_CR_NB<- auc_CR_NB@y.values[[1]]
+auc_CR_NB
+```
+#validating using RANDOM FOREST
+```{r warning=FALSE}
+validate_CR_RF<- predict(model_CR_RF,newdata =CR_V)
+validate_CR_RF<-as.numeric(validate_CR_RF)
+#validate_CR_RF <- ifelse(validate_CR_RF >=0.5,1,0)
+
+CF_RF<-table(validate_CR_RF,CR_V$Credit)
+CF_RF
+
+acc(CF_RF)  #0.7777778  77.77%
+
+library(ROCR)
+
+pr_CR_RF<- prediction(validate_CR_RF,CR_V$Credit)
+#length(cr_v$Loan_Status)
+prf_CR_RF<- performance(pr_CR_RF,measure = "tpr",x.measure = "fpr")
+plot(prf_CR_RF)
+
+#obtaining area under ROC curve
+auc_CR_RF<-performance(pr_CR_RF,measure = "auc")
+auc_CR_RF<- auc_CR_RF@y.values[[1]]
+auc_CR_RF
+```
+#From above models ,it is observed that Logistic Regression HAS HIGHEST ACCURECY 
+```{r warning=FALSE}
+CR_V=data.frame(CR_V,validate_CR_LR)
+View(CR_V)
+write.csv(CR_V,file = "validate(accurecy,report).csv")
+```
